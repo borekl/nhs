@@ -93,7 +93,7 @@ sub parse_log
   #--- if this is enabled for a source (through "logfiles.options"), check
   #--- whether base64 fields exist and decode them
 
-  if(grep(/^base64xlog$/, @{$log->options})) {
+  if($log->options && grep(/^base64xlog$/, @{$log->options})) {
     for my $field (keys %l) {
       next if $field !~ /^(.+)64$/;
       $l{$1} = decode_base64($l{$field});
