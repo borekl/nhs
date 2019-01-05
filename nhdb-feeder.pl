@@ -29,6 +29,7 @@ use NetHack::Config;
 use NetHack::Variant;
 use NHdb::Config;
 use NHdb::Db;
+use NHdb::Schema;
 use NHdb::Utils;
 use NHdb::Feeder::Cmdline;
 
@@ -55,6 +56,7 @@ my $logger;                     # log4perl instance
 my $nh = new NetHack::Config(config_file => 'cfg/nethack_def.json');
 my $nhdb = NHdb::Config->new();
 my $db;                         # NHdb::Db instance
+my $dbic;                       # DBIx::Class schema instance
 
 
 #============================================================================
@@ -76,8 +78,8 @@ sub parse_log
 
   #--- make NetHack's version numeric
 
-  if($log->{'variant'} eq 'nh' && $log->{'version'}) {
-    $log->{'version'} =~ /^(\d+)\.(\d+)\.(\d+)$/;
+  if($log->variant eq 'nh' && $log->version) {
+    $log->version =~ /^(\d+)\.(\d+)\.(\d+)$/;
     $version = int(sprintf('%02d%02d%02d', $1, $2, $3));
   }
 
@@ -99,7 +101,7 @@ sub parse_log
   #--- if this is enabled for a source (through "logfiles.options"), check
   #--- whether base64 fields exist and decode them
 
-  if(grep(/^base64xlog$/, @{$log->{'options'}})) {
+  if(grep(/^base64xlog$/, @{$log->options})) {
     for my $field (keys %l) {
       next if $field !~ /^(.+)64$/;
       $l{$1} = decode_base64($l{$field});
@@ -762,9 +764,9 @@ sub sql_purge_database
   #--- iterate over logfiles
 
   for my $log (@logfiles) {
-    my ($srv, $var) = ($log->{'server'}, $log->{'variant'});
-    my $logfiles_i = $log->{'logfiles_i'};
-    $logger->info("[$srv/$var] ", $log->{'descr'});
+    my ($srv, $var) = ($log->server, $log->variant);
+    my $logfiles_i = $log->logfiles_i;
+    $logger->info("[$srv/$var] ", $log->descr);
 
   #--- eval begin
 
@@ -1095,6 +1097,13 @@ $db = NHdb::Db->new(id => 'nhdbfeeder', config => $nhdb);
 my $dbh = $db->handle();
 die "Undefined database handle" if !$dbh;
 
+$dbic = NHdb::Schema->connect(
+  'dbi:Pg:dbname=nhdb',
+  'nhdbfeeder',
+  $nhdb->config()->{'auth'}{'nhdbfeeder'},
+  { pg_enable_utf8 => 1}
+);
+
 #--- process --oper and --static options
 
 if(defined($cmd->operational()) || defined($cmd->static())) {
@@ -1135,21 +1144,10 @@ if($cmd->pmap_add() || $cmd->pmap_remove()) {
 
 #--- get list of logfiles to process
 
-my @logfiles;
-my @qry;
+my @logfiles = $dbic->resultset('Logfiles')->search(
+  undef, { order_by => 'logfiles_i' }
+);
 
-push(@qry, q{SELECT * FROM logfiles});
-push(@qry, q{WHERE oper = 't'}) unless $cmd->show_logfiles();
-push(@qry, q{ORDER BY logfiles_i ASC});
-my $qry = join(' ', @qry);
-my $sth = $dbh->prepare($qry);
-my $r = $sth->execute();
-if(!$r) {
-  die 'Database query failed (' . $sth->errstr() . ')';
-}
-while(my $s = $sth->fetchrow_hashref()) {
-  push(@logfiles, $s);
-}
 if(scalar(@logfiles) == 0) {
   die "No operational logfiles configured\n";
 }
@@ -1173,17 +1171,17 @@ if($cmd->show_logfiles()) {
   for my $log (@logfiles) {
 
     my $s = ' ';
-    if($log->{'static'}) { $s = '+'; }
-    if(!$log->{'oper'}) { $s = '*'; }
+    if($log->static) { $s = '+'; }
+    if(!$log->oper) { $s = '*'; }
 
     $logger->info(
       sprintf(
         "%5d%1s %-3s %-3s %s\n",
-        $log->{'logfiles_i'},
+        $log->logfiles_i,
         $s,
-        $log->{'server'},
-        $log->{'variant'},
-        substr($log->{'descr'}, 0, 48)
+        $log->server,
+        $log->variant,
+        substr($log->descr, 0, 48)
       )
     );
   }
@@ -1199,9 +1197,9 @@ if($cmd->purge()) {
 
 #--- load list of translations
 
-$qry = q{SELECT server, name_from, name_to FROM translations};
-$sth = $dbh->prepare($qry);
-$r = $sth->execute();
+my $qry = q{SELECT server, name_from, name_to FROM translations};
+my $sth = $dbh->prepare($qry);
+my $r = $sth->execute();
 if(!$r) {
   die 'Database query failed (' . $sth->errstr() . ')';
 }
@@ -1265,20 +1263,20 @@ if($cnt_update == 0) {
 for my $log (@logfiles) {
 
   my $transaction_in_progress = 0;
-  my $logfiles_i = $log->{'logfiles_i'};
-  my $lbl = sprintf('[%s/%s] ', $log->{'variant'}, $log->{'server'});
+  my $logfiles_i = $log->logfiles_i;
+  my $lbl = sprintf('[%s/%s] ', $log->variant, $log->server);
 
   #--- user selection processing
 
   next if
     @{$cmd->variants()} &&
-    !grep { $log->{'variant'} eq lc($_) } @{$cmd->variants()};
+    !grep { $log->variant eq lc($_) } @{$cmd->variants()};
   next if
     scalar(@{$cmd->servers()}) &&
-    !grep { $log->{'server'} eq lc($_) } @{$cmd->servers()};
+    !grep { $log->server eq lc($_) } @{$cmd->servers()};
   next if
     $cmd->logid() &&
-    $log->{'logfiles_i'} != $cmd->logid();
+    $log->logfiles_i != $cmd->logid();
 
   eval { # <--- eval starts here -------------------------------------------
 
@@ -1287,35 +1285,35 @@ for my $log (@logfiles) {
     my $localfile = sprintf(
       '%s/%s',
       $nhdb->config()->{'logs'}{'localpath'},
-      $log->{'localfile'}
+      $log->localfile
     );
     my @fsize;
-    my $fpos = $log->{'fpos'};
+    my $fpos = $log->fpos;
     $fsize[0] = -s $localfile;
     $logger->info('---');
     $logger->info($lbl, 'Processing started');
     $logger->info($lbl, 'Local file is ', $localfile);
-    $logger->info($lbl, 'Logfile URL is ', $log->{'logurl'} ? $log->{'logurl'} : 'N/A');
+    $logger->info($lbl, 'Logfile URL is ', $log->logurl ? $log->logurl : 'N/A');
 
     #--- retrieve file
 
-    if($log->{'static'}) {
+    if($log->static) {
       $logger->info($lbl, 'Static logfile, skipping retrieval');
       $fsize[1] = $fsize[0];
-    } elsif(!$log->{'logurl'}) {
+    } elsif(!$log->logurl) {
       $logger->warn($lbl, 'Log URL not defined, skipping retrieval');
     } else {
       $logger->info($lbl, 'Getting logfile from the server');
       $r = system(
-        sprintf($nhdb->config()->{'wget'}, $localfile, $log->{'logurl'})
+        sprintf($nhdb->config()->{'wget'}, $localfile, $log->logurl)
       );
       if($r) { $logger->warn($lbl, 'Failed to get the logfile'); die; }
       $fsize[1] = -s $localfile;
       $logger->info($lbl, sprintf('Logfile retrieved successfully, got %d bytes', $fsize[1] - $fsize[0]));
       if(
-        $log->{'fpos'}
+        $log->fpos
         && ($fsize[1] - $fsize[0] < 1)
-        && ($fsize[0] - $log->{'fpos'} < 1)
+        && ($fsize[0] - $log->fpos < 1)
       ) {
         $logger->info($lbl, 'No new data, skipping further processing');
         $dbh->do(
@@ -1344,15 +1342,6 @@ for my $log (@logfiles) {
       }
     }
 
-    #--- set timezone
-
-    $logger->info($lbl, 'Setting time zone to ', $log->{'tz'});
-    $r = $dbh->do(sprintf(q{SET TIME ZONE '%s'}, $log->{'tz'}));
-    if(!$r) {
-      $logger->error($lbl, 'Failed to set time zone');
-      die;
-    }
-
     #--- begin transaction
 
     $logger->info($lbl, 'Starting database transaction');
@@ -1373,7 +1362,7 @@ for my $log (@logfiles) {
     my %streak_open;      # indicates open streak for
     my $devnull;          # devnull xlogfile option
 
-    $devnull = grep(/^devnull$/, @{$log->{'options'}});
+    $devnull = grep(/^devnull$/, @{$log->options}) if $log->options;
 
     $logger->info($lbl, 'Processing file ', $localfile);
 
@@ -1397,9 +1386,9 @@ for my $log (@logfiles) {
       my ($rowid, $values);
       ($qry, $values) = sql_insert_games(
         $logfiles_i,
-        $log->{'lines'} + $lc,
-        $log->{'server'},
-        $log->{'variant'},
+        $log->lines + $lc,
+        $log->server,
+        $log->variant,
         $pl
       );
       if($qry) {
@@ -1419,8 +1408,8 @@ for my $log (@logfiles) {
     # scummed games do trigger these updates; I haven't decided
     # if we want this or not.
 
-        $update_variant{$log->{'variant'}} = 1;
-        $update_name{$pl->{'name'}}{$log->{'variant'}} = 1;
+        $update_variant{$log->variant} = 1;
+        $update_name{$pl->{'name'}}{$log->variant} = 1;
 
     #-------------------------------------------------------------------------
     #--- streak processing starts here ---------------------------------------
@@ -1541,7 +1530,7 @@ for my $log (@logfiles) {
 
     #--- close streak for 'static' sources
 
-    if($log->{'static'}) {
+    if($log->static) {
       my $re = sql_streak_close_all($logfiles_i);
       if(!ref($re)) {
         $logger->error($lbl, q{Failed to close all streaks});
@@ -1565,15 +1554,15 @@ for my $log (@logfiles) {
       'lines = ?'
     );
 
-    if($log->{'static'}) { push(@logupdate, 'oper = false'); }
+    if($log->static) { push(@logupdate, 'oper = false'); }
     $qry = sprintf(
       'UPDATE logfiles SET %s WHERE logfiles_i = ?', join(', ', @logupdate)
     );
     $sth = $dbh->prepare($qry);
     $r = $sth->execute(
       $fsize[1],
-      $log->{'lines'} + $lc,
-      $log->{'logfiles_i'}
+      $log->lines + $lc,
+      $log->logfiles_i
     );
     if(!$r) {
       $logger->error($lbl, q{Failed to update table 'servers'});
