@@ -756,9 +756,9 @@ sub sql_purge_database
   #--- iterate over logfiles
 
   for my $log (@logfiles) {
-    my ($srv, $var) = ($log->server, $log->variant);
-    my $logfiles_i = $log->logfiles_i;
-    $logger->info("[$srv/$var] ", $log->descr);
+    my ($srv, $var) = ($log->{'server'}, $log->{'variant'});
+    my $logfiles_i = $log->{'logfiles_i'};
+    $logger->info("[$srv/$var] ", $log->{'descr'});
 
   #--- eval begin
 
