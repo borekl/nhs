@@ -1189,14 +1189,9 @@ if($cmd->purge()) {
 
 #--- load list of translations
 
-my $qry = q{SELECT server, name_from, name_to FROM translations};
-my $sth = $dbh->prepare($qry);
-my $r = $sth->execute();
-if(!$r) {
-  die 'Database query failed (' . $sth->errstr() . ')';
-}
-while(my @a = $sth->fetchrow_array()) {
-  $translations{$a[0]}{$a[1]} = $a[2];
+my $translations_rs = $dbic->resultset('Translations');
+while(my $tl = $translations_rs->next()) {
+  $translations{$tl->server}{$tl->name_from} = $tl->name_to;
   $translations_cnt++;
 }
 $logger->info(
@@ -1212,40 +1207,35 @@ $logger->info(
 # when finds none, it assumes it is uninitialized and
 # initializes it
 
+my ($r, $sth);
 $logger->info('Checking update table');
-my $sth = $dbh->prepare('SELECT count(*) FROM update');
-my $r = $sth->execute();
-if(!$r) {
-  die sprintf("Cannot count update table (%s)", $sth->errstr());
-}
-my ($cnt_update) = $sth->fetchrow_array();
-$sth->finish();
+my $cnt_update = $dbic->resultset('Update')->count();
 if($cnt_update == 0) {
   $logger->info('No entries in the update table');
   $logger->info('Initializing update table, step 1');
-  $r = $dbh->do(
-    'INSERT INTO update ' .
-    'SELECT variant, name ' .
-    'FROM games LEFT JOIN logfiles USING (logfiles_i) ' .
-    'GROUP BY variant, name'
-  );
-  if(!$r) {
-    die sprintf("Failed to initialize the update table (%s)", $sth->errstr());
-  } else {
-    $logger->info(sprintf('Update table initialized with %d entries (step 1)', $r));
-  }
+
+  $r = $dbic->storage->dbh_do(sub {
+    my ($storage, $dbh) = @_;
+    $dbh->do(
+      'INSERT INTO update ' .
+      'SELECT variant, name ' .
+      'FROM games LEFT JOIN logfiles USING (logfiles_i) ' .
+      'GROUP BY variant, name'
+    );
+  });
+  $logger->info(sprintf('Update table initialized with %d entries (step 1)', $r));
+
   $logger->info('Initializing update table, step 2');
-  $r = $dbh->do(
-    q{INSERT INTO update } .
-    q{SELECT 'all', name, FALSE } .
-    q{FROM games LEFT JOIN logfiles USING (logfiles_i) } .
-    q{GROUP BY name}
-  );
-  if(!$r) {
-    die sprintf("Failed to initialize the update table (%s)", $sth->errstr());
-    } else {
-      $logger->info(sprintf('Update table initialized with %d entries (step 2)', $r));
-    }
+  $r = $dbic->storage->dbh_do(sub {
+    my ($storage, $dbh) = @_;
+    $dbh->do(
+      q{INSERT INTO update } .
+      q{SELECT 'all', name, FALSE } .
+      q{FROM games LEFT JOIN logfiles USING (logfiles_i) } .
+      q{GROUP BY name}
+    )
+  });
+  $logger->info(sprintf('Update table initialized with %d entries (step 2)', $r));
 } else {
   $logger->info(sprintf('Update table has %d entries', $cnt_update));
 }
@@ -1375,7 +1365,7 @@ for my $log (@logfiles) {
 
     #--- insert row into database
 
-      my ($rowid, $values);
+      my ($qry, $rowid, $values);
       ($qry, $values) = sql_insert_games(
         $logfiles_i,
         $log->lines + $lc,
@@ -1547,7 +1537,7 @@ for my $log (@logfiles) {
     );
 
     if($log->static) { push(@logupdate, 'oper = false'); }
-    $qry = sprintf(
+    my $qry = sprintf(
       'UPDATE logfiles SET %s WHERE logfiles_i = ?', join(', ', @logupdate)
     );
     $sth = $dbh->prepare($qry);
