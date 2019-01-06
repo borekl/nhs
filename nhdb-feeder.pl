@@ -1184,6 +1184,7 @@ if($cmd->show_logfiles()) {
 
 if($cmd->purge()) {
   sql_purge_database($cmd->variants(), $cmd->servers(), $cmd->logid());
+  unlink($lockfile);
   exit(0);
 }
 
