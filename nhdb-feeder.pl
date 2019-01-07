@@ -250,29 +250,16 @@ sub sql_streak_create_new
   my $name_orig = shift;
   my $rowid = shift;
   my $logger = get_logger('Streaks');
-  my $dbh = $db->handle();
 
   #--- create new streak entry
 
-  my $qry =
-    q{INSERT INTO streaks (logfiles_i, name, name_orig) VALUES (?, ?, ?) };
-  $qry .= q{RETURNING streaks_i};
-  my $sth = $dbh->prepare($qry);
-  my $r = $sth->execute($logfiles_i, $name, $name_orig);
-  if(!$r) {
-    $logger->fatal(
-      sprintf(
-        'sql_streak_create_new() failed to create new streak, dberr=%s',
-        $sth->errstr()
-      )
-    );
-    return $sth->errstr();
-  }
+  my $rs = $dbic->resultset('Streaks')->create({
+    logfiles_i => $logfiles_i,
+    name => $name,
+    name_orig => $name_orig
+  });
+  my $streaks_i = $rs->id;
 
-  #--- retrieve streak id
-
-  my ($streaks_i) = $sth->fetchrow_array();
-  $sth->finish();
   $logger->debug(
     sprintf(
       'Started new streak %d (logfiles_i=%d, name=%s, rowid=%d)',
@@ -282,7 +269,7 @@ sub sql_streak_create_new
 
   #--- add the game to the new streak
 
-  $r = sql_streak_append_game($streaks_i, $rowid);
+  my $r = sql_streak_append_game($streaks_i, $rowid);
   return $r if !ref($r);
 
   #--- return
@@ -300,21 +287,14 @@ sub sql_streak_append_game
   my $streaks_i = shift;     # 1. streak to be appended to
   my $rowid = shift;         # 2. the game to be appended
   my $logger = get_logger('Streaks');
-  my $dbh = $db->handle();
 
   #--- create mapping entry
 
-  my $qry = q{INSERT INTO map_games_streaks VALUES (?, ?)};
-  my $r = $dbh->do($qry, undef, $rowid, $streaks_i);
-  if(!$r) {
-    $logger->fatal(
-      sprintf(
-        'sql_streak_append_game(%d, %d) failed to append game, errdb=%s',
-        $streaks_i, $rowid, $dbh->errstr()
-      )
-    );
-    return $dbh->errstr();
-  }
+  $dbic->resultset('MapGamesStreaks')->create({
+    rowid => $rowid,
+    streaks_i => $streaks_i
+  });
+
   $logger->debug(
     sprintf(
       'Appended game %d to streak %d',
@@ -337,23 +317,13 @@ sub sql_streak_close
 {
   my $streaks_i = shift;
   my $logger = get_logger('Streaks');
-  my $dbh = $db->handle();
 
   #--- close streak entity and get its current state
 
-  my $qry = q{UPDATE streaks SET open = FALSE };
-  $qry .= q{WHERE streaks_i = ?};
-  my $sth = $dbh->prepare($qry);
-  my $r = $sth->execute($streaks_i);
-  if(!$r) {
-    $logger->fatal(
-      sprintf(
-        'sql_streak_close(%d) failed to close streak, errdb=%s',
-        $streaks_i, $dbh->errstr()
-      )
-    );
-    return $sth->errstr();
-  }
+  my $streak = $dbic->resultset('Streaks')->find($streaks_i);
+  $streak->open('false');
+  $streak->update;
+
   $logger->debug(sprintf('Closed streak %d', $streaks_i));
 
   #--- finish
@@ -370,20 +340,12 @@ sub sql_streak_close_all
 {
   my $logfiles_i = shift;
   my $logger = get_logger('Streaks');
-  my $dbh = $db->handle();
 
-  my $qry = q{UPDATE streaks SET open = FALSE WHERE logfiles_i = ?};
-  my $sth = $dbh->prepare($qry);
-  my $r = $sth->execute($logfiles_i);
-  if(!$r) {
-    $logger->error(
-      sprintf(
-        'sql_streak_close_all(%d) failed to close streaks, errdb=%s',
-        $logfiles_i, $dbh->errstr()
-      )
-    );
-    return $sth->errstr();
-  }
+  my $r = $dbic->resultset('Streaks')->search(
+    { logfiles_i => $logfiles_i }
+  )->update(
+    { open => 'false' }
+  );
 
   #--- finish
 
@@ -1089,12 +1051,13 @@ $db = NHdb::Db->new(id => 'nhdbfeeder', config => $nhdb);
 my $dbh = $db->handle();
 die "Undefined database handle" if !$dbh;
 
-$dbic = NHdb::Schema->connect(
-  'dbi:Pg:dbname=nhdb',
-  'nhdbfeeder',
-  $nhdb->config()->{'auth'}{'nhdbfeeder'},
-  { pg_enable_utf8 => 1}
-);
+$dbic = NHdb::Schema->connect(sub { $dbh; });
+#$dbic = NHdb::Schema->connect(
+#  'dbi:Pg:dbname=nhdb',
+#  'nhdbfeeder',
+#  $nhdb->config()->{'auth'}{'nhdbfeeder'},
+#  { pg_enable_utf8 => 1 }
+#);
 
 #--- process --oper and --static options
 
