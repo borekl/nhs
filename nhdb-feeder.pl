@@ -168,80 +168,6 @@ sub sql_log_select_cond
 
 
 #============================================================================
-# Function to set logfiles.oper and .static fields from command line using
-# the --oper and --static options. This function assumes that at least one
-# of the $cmd_oper or $cmd_static is defined.
-#============================================================================
-
-sub sql_logfile_set_state
-{
-  #--- arguments
-
-  my (
-    $cmd_variant,
-    $cmd_server,
-    $cmd_logid,
-    $cmd_oper,
-    $cmd_static
-  ) = @_;
-
-  #--- other init
-
-  ($cmd_variant, $cmd_server, $cmd_logid)
-  = referentize($cmd_variant, $cmd_server, $cmd_logid);
-
-  my $logger = get_logger('Feeder::Admin');
-  $logger->info('Requested oper/static flag change');
-  if(@$cmd_variant) {
-    $logger->info('Variants: ' . join(',', @$cmd_variant));
-  }
-
-  if(@$cmd_server) {
-    $logger->info('Servers: ' . join(',', @$cmd_server));
-  }
-
-  if(@$cmd_logid) {
-    $logger->info('Log ids: ' . join(',', @$cmd_logid));
-  }
-
-  #--- on what entries we are going to operate
-
-  my ($cond, @arg) = sql_log_select_cond(
-    $cmd_variant, $cmd_server, $cmd_logid
-  );
-
-  #--- what are we going to do
-
-  my @set;
-  if(defined($cmd_oper)) {
-    push(@set, 'oper = ' . ($cmd_oper ? 'TRUE' : 'FALSE'));
-  }
-  if(defined($cmd_static)) {
-    push(@set, 'static = ' . ($cmd_static ? 'TRUE' : 'FALSE'));
-  }
-  $logger->info('Operation: ', join(', ', @set));
-
-  #--- assemble the query
-
-  my $qry = 'UPDATE logfiles SET ' . join(', ', @set);
-  if($cond) {
-    $qry .= ' WHERE ' . $cond;
-  }
-
-  #--- perform the query
-
-  my $dbh = $db->handle();
-  my $r = $dbh->do($qry, undef, @arg);
-  if(!$r) {
-    $logger->fatal('Database error occured');
-    $logger->fatal($dbh->errstr());
-    return;
-  }
-  $logger->info(sprintf('%d rows affected', $r));
-}
-
-
-#============================================================================
 # Create new streak entry, add one game to it and return [ streaks_i ] on
 # success or error msg.
 #============================================================================
@@ -1062,19 +988,6 @@ $dbic = NHdb::Schema->connect(sub { $dbh; });
 #  { pg_enable_utf8 => 1 }
 #);
 
-#--- process --oper and --static options
-
-if(defined($cmd->operational()) || defined($cmd->static())) {
-  sql_logfile_set_state(
-    $cmd->variants(),
-    $cmd->servers(),
-    $cmd->logid(),
-    $cmd->operational(),
-    $cmd->static()
-  );
-  exit(0);
-}
-
 #--- process --pmap options
 
 my (@cmd_pmap_add, @cmd_pmap_remove);
@@ -1112,6 +1025,17 @@ my $logfiles_new = NHdb::Logfiles->new(
 $logger->info(
   pluralize('%d log(s) selected for processing', $logfiles_new->count)
 );
+
+#--- process --oper and --static options
+
+if(defined($cmd->operational()) || defined($cmd->static())) {
+  $logfiles_new->set_state(
+    oper => $cmd->operational,
+    static => $cmd->static,
+  );
+  $logger->info('Operational/static flags set, exiting');
+  exit(0);
+}
 
 #--- get list of logfiles to process
 
