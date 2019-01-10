@@ -599,7 +599,7 @@ sub sql_purge_database
 {
   #--- arguments
 
-  my ($variants, $servers, $logids) = referentize(@_);
+  my ($logfiles) = @_;
 
   #--- other variables
 
@@ -608,48 +608,17 @@ sub sql_purge_database
   #--- init logging
 
   my $logger = get_logger('Feeder::Purge_db');
-  $logger->info('Requested database purge');
-  if(@$variants) {
-    $logger->info('Variants: ' . join(',', @$variants));
-  }
+  $logger->info(
+    pluralize('Requested database purge of %d source(s)', $logfiles->count)
+  );
 
-  if(@$servers) {
-    $logger->info('Servers: ' . join(',', @$servers));
-  }
+    #--- iterate over logfiles
 
-  if(@$logids) {
-    $logger->info('Log ids: ' . join(',', @$logids));
-  }
-
-  #--- get list of logfiles we will be operating on
-
-  my @logfiles;
-  my ($cond, @arg) = sql_log_select_cond(@_);
-  my $qry = 'SELECT * FROM logfiles' . ($cond ? (' WHERE ' . $cond) : '');
-  my $sth = $dbh->prepare($qry);
-  my $r = $sth->execute(@arg);
-
-  if(!$r) {
-    $logger->fatal(
-      sprintf('Failed to get list of logfiles (%s)', $sth->errstr())
-    );
-  }
-  while(my $s = $sth->fetchrow_hashref()) {
-    push(@logfiles, $s);
-  }
-  if(scalar(@logfiles) == 0) {
-    $logger->fatal("No matching logfiles");
-    return;
-  } else {
-    $logger->info(sprintf('%d logfiles to be purged', scalar(@logfiles)));
-  }
-
-  #--- iterate over logfiles
-
-  for my $log (@logfiles) {
-    my ($srv, $var) = ($log->{'server'}, $log->{'variant'});
-    my $logfiles_i = $log->{'logfiles_i'};
-    $logger->info("[$srv/$var] ", $log->{'descr'});
+  for my $log (@{$logfiles->logfiles}) {
+    my $r;
+    my ($srv, $var) = ($log->get('server'), $log->get('variant'));
+    my $logfiles_i = $log->get('logfiles_i');
+    $logger->info("[$srv/$var] ", $log->get('descr'));
 
   #--- eval begin
 
@@ -688,19 +657,7 @@ sub sql_purge_database
 
   #--- reset 'fpos' field in 'logfiles' table
 
-      $r = $dbh->do(
-        'UPDATE logfiles SET fpos = NULL, lines = 0 WHERE logfiles_i = ?',
-        undef, $logfiles_i
-      );
-      if(!$r) {
-        $logger->fatal(
-          sprintf(
-            '[%s/%s] Failed to reset the fpos/lines fields',
-            $srv, $var
-          )
-        );
-        die "ABORT\n";
-      }
+      $log->reset;
 
   #--- eval end
 
@@ -1088,7 +1045,7 @@ if($cmd->show_logfiles()) {
 #--- database purge
 
 if($cmd->purge()) {
-  sql_purge_database($cmd->variants(), $cmd->servers(), $cmd->logid());
+  sql_purge_database($logfiles_new);
   unlink($lockfile);
   exit(0);
 }
