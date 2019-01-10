@@ -1019,7 +1019,9 @@ my $logfiles_new = NHdb::Logfiles->new(
   db => $dbic->resultset('Logfiles'),
   servers => $cmd->servers,
   variants => $cmd->variants,
-  logids => $cmd->logid,
+  # FIXME: We really should make --logid accept multiple values,
+  # current state of things is inconsistent
+  logids => $cmd->logid ? [ $cmd->logid ] : undef,
 );
 
 $logger->info(
