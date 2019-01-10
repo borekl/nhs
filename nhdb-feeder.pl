@@ -110,64 +110,6 @@ sub parse_log
 
 
 #============================================================================
-# This function returns the WHERE part of SQL query for given
-# variants/servers/logid. The arguments are supposed to come from the
-# --variant, --server and --logid command-line parameters.
-#============================================================================
-
-sub sql_log_select_cond
-{
-  #--- arguments
-
-  my ($variants, $servers, $logids) = map {
-    ref($_) ? $_ : ($_ ? [ $_ ] : []);
-  } @_;
-
-  #--- other variables
-
-  my (@cond_var, @cond_srv, @cond_log, @cond, @arg);
-
-  #--- variants
-
-  if(@$variants) {
-    push(@cond_var, ('variant = ?') x scalar(@$variants));
-    push(@arg, @$variants);
-  }
-
-  #--- servers
-
-  if(@$servers) {
-    push(@cond_srv, ('server = ?') x scalar(@$servers));
-    push(@arg, @$servers);
-  }
-
-  #--- logfile ids
-
-  if(@$logids) {
-    push(@cond_log, ('logfiles_i = ?') x scalar(@$logids));
-    push(@arg, @$logids);
-  }
-
-  #--- assemble the final query
-
-  if(@cond_var) {
-    push(@cond, '(' . join(' OR ', @cond_var) . ')');
-  }
-  if(@cond_srv) {
-    push(@cond, '(' . join(' OR ', @cond_srv) . ')');
-  }
-  if(@cond_log) {
-    push(@cond, '(' . join(' OR ', @cond_log) . ')');
-  }
-
-  return (
-    join(' AND ', @cond),
-    @arg
-  );
-}
-
-
-#============================================================================
 # Create new streak entry, add one game to it and return [ streaks_i ] on
 # success or error msg.
 #============================================================================
