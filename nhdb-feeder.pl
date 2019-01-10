@@ -96,7 +96,7 @@ sub parse_log
   #--- if this is enabled for a source (through "logfiles.options"), check
   #--- whether base64 fields exist and decode them
 
-  if($log->options && grep(/^base64xlog$/, @{$log->options})) {
+  if($log->has_option('base64xlog')) {
     for my $field (keys %l) {
       next if $field !~ /^(.+)64$/;
       $l{$1} = decode_base64($l{$field});
@@ -1047,68 +1047,49 @@ if($cnt_update == 0) {
 
 #--- iterate over logfiles
 
-for my $log (@logfiles) {
+for my $log (@{$logfiles_new->logfiles}) {
 
   my $transaction_in_progress = 0;
-  my $logfiles_i = $log->logfiles_i;
-  my $lbl = sprintf('[%s/%s] ', $log->variant, $log->server);
-
-  #--- user selection processing
-
-  next if
-    @{$cmd->variants()} &&
-    !grep { $log->variant eq lc($_) } @{$cmd->variants()};
-  next if
-    scalar(@{$cmd->servers()}) &&
-    !grep { $log->server eq lc($_) } @{$cmd->servers()};
-  next if
-    $cmd->logid() &&
-    $log->logfiles_i != $cmd->logid();
+  my $logfiles_i = $log->get('logfiles_i');
+  my $lbl = sprintf('[%s/%s] ', $log->get('variant'), $log->get('server'));
 
   eval { # <--- eval starts here -------------------------------------------
 
     #--- prepare, print info
 
-    my $localfile = sprintf(
-      '%s/%s',
-      $nhdb->config()->{'logs'}{'localpath'},
-      $log->localfile
-    );
+    my $localfile = $log->localfile;
     my @fsize;
-    my $fpos = $log->fpos;
+    my $fpos = $log->get('fpos');
     $fsize[0] = -s $localfile;
     $logger->info('---');
     $logger->info($lbl, 'Processing started');
     $logger->info($lbl, 'Local file is ', $localfile);
-    $logger->info($lbl, 'Logfile URL is ', $log->logurl ? $log->logurl : 'N/A');
+    $logger->info($lbl,
+      'Logfile URL is ', $log->get('logurl') ? $log->get('logurl') : 'N/A'
+    );
 
     #--- retrieve file
+    # FIXME: Feedback to the user needs improving
 
-    if($log->static) {
-      $logger->info($lbl, 'Static logfile, skipping retrieval');
-      $fsize[1] = $fsize[0];
-    } elsif(!$log->logurl) {
-      $logger->warn($lbl, 'Log URL not defined, skipping retrieval');
+    $logger->debug($lbl,
+      sprintf('Current fpos = %s',
+      defined $log->get('fpos') ? $log->get('fpos') : 'undef')
+    );
+
+    $r = $log->retrieve_xlogfile;
+    if($r == -1) {
+      $logger->warn($lbl, 'Failed to retrieve the xlogfile');
+      die;
+    } elsif($r == 0 && defined $log->get('fpos')) {
+      $logger->warn($lbl, 'No new data, skipping further processing');
+      die "OK\n";
     } else {
-      $logger->info($lbl, 'Getting logfile from the server');
-      $r = system(
-        sprintf($nhdb->config()->{'wget'}, $localfile, $log->logurl)
+      $logger->info($lbl,
+        sprintf(
+          'Logfile retrieved successfully, got %d bytes',
+          (-s $localfile) - $log->get('fpos')
+        )
       );
-      if($r) { $logger->warn($lbl, 'Failed to get the logfile'); die; }
-      $fsize[1] = -s $localfile;
-      $logger->info($lbl, sprintf('Logfile retrieved successfully, got %d bytes', $fsize[1] - $fsize[0]));
-      if(
-        $log->fpos
-        && ($fsize[1] - $fsize[0] < 1)
-        && ($fsize[0] - $log->fpos < 1)
-      ) {
-        $logger->info($lbl, 'No new data, skipping further processing');
-        $dbh->do(
-          'UPDATE logfiles SET lastchk = current_timestamp WHERE logfiles_i = ?',
-          undef, $logfiles_i
-        );
-        die "OK\n";
-      }
     }
 
     #--- open the file
@@ -1149,7 +1130,7 @@ for my $log (@logfiles) {
     my %streak_open;      # indicates open streak for
     my $devnull;          # devnull xlogfile option
 
-    $devnull = grep(/^devnull$/, @{$log->options}) if $log->options;
+    $devnull = $log->has_option('devnull');
 
     $logger->info($lbl, 'Processing file ', $localfile);
 
@@ -1173,9 +1154,9 @@ for my $log (@logfiles) {
       my ($qry, $rowid, $values);
       ($qry, $values) = sql_insert_games(
         $logfiles_i,
-        $log->lines + $lc,
-        $log->server,
-        $log->variant,
+        $log->get('lines') + $lc,
+        $log->get('server'),
+        $log->get('variant'),
         $pl
       );
       if($qry) {
@@ -1195,8 +1176,8 @@ for my $log (@logfiles) {
     # scummed games do trigger these updates; I haven't decided
     # if we want this or not.
 
-        $update_variant{$log->variant} = 1;
-        $update_name{$pl->{'name'}}{$log->variant} = 1;
+        $update_variant{$log->get('variant')} = 1;
+        $update_name{$pl->{'name'}}{$log->get('variant')} = 1;
 
     #-------------------------------------------------------------------------
     #--- streak processing starts here ---------------------------------------
@@ -1317,7 +1298,7 @@ for my $log (@logfiles) {
 
     #--- close streak for 'static' sources
 
-    if($log->static) {
+    if($log->get('static')) {
       my $re = sql_streak_close_all($logfiles_i);
       if(!ref($re)) {
         $logger->error($lbl, q{Failed to close all streaks});
@@ -1341,15 +1322,15 @@ for my $log (@logfiles) {
       'lines = ?'
     );
 
-    if($log->static) { push(@logupdate, 'oper = false'); }
+    if($log->get('static')) { push(@logupdate, 'oper = false'); }
     my $qry = sprintf(
       'UPDATE logfiles SET %s WHERE logfiles_i = ?', join(', ', @logupdate)
     );
     $sth = $dbh->prepare($qry);
     $r = $sth->execute(
       $fsize[1],
-      $log->lines + $lc,
-      $log->logfiles_i
+      $log->get('lines') + $lc,
+      $log->get('logfiles_i')
     );
     if(!$r) {
       $logger->error($lbl, q{Failed to update table 'servers'});

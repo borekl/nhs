@@ -110,6 +110,14 @@ sub retrieve_xlogfile
     sprintf($nhdb->config()->{'wget'}, $localfile, $self->get('logurl'))
   );
 
+  #--- update lastcheck field when the xlogfile was successfully transferred
+  #--- but no new data arrived; if new data was received, the update will
+  #--- be only done after parsing and storing into the database
+
+  if($r == 0) {
+    $self->update_lastcheck;
+  }
+
   #--- return how many new bytes were retrieved
 
   return $r ? -1 : (-s $localfile) - $fsize_before;
@@ -222,6 +230,20 @@ sub reset
   $self->db->update({
     fpos => undef,
     lines => 0,
+  });
+}
+
+
+#=============================================================================
+# Set the logfiles.lastcheck to current_timestamp.
+#=============================================================================
+
+sub update_lastcheck
+{
+  my ($self) = @_;
+
+  return $self->db->update({
+    lastchk => \[ 'current_timestamp' ],
   });
 }
 
