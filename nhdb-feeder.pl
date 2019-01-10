@@ -20,6 +20,8 @@ use DBI;
 use Getopt::Long;
 use Log::Log4perl qw(get_logger);
 use MIME::Base64 qw(decode_base64);
+use Text::Pluralize;
+use Path::Tiny;
 
 #--- internal modules -------------------------------------------------------
 
