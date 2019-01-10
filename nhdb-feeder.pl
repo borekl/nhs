@@ -32,6 +32,7 @@ use NHdb::Db;
 use NHdb::Schema;
 use NHdb::Utils;
 use NHdb::Feeder::Cmdline;
+use NHdb::Logfiles;
 
 
 #--- additional perl runtime setup ------------------------------------------
@@ -1096,6 +1097,19 @@ if($cmd->pmap_add() || $cmd->pmap_remove()) {
   }
   exit($r ? 1 : 0);
 }
+
+#--- initialize logfiles processing
+
+my $logfiles_new = NHdb::Logfiles->new(
+  db => $dbic->resultset('Logfiles'),
+  servers => $cmd->servers,
+  variants => $cmd->variants,
+  logids => $cmd->logid,
+);
+
+$logger->info(
+  pluralize('%d log(s) selected for processing', $logfiles_new->count)
+);
 
 #--- get list of logfiles to process
 
