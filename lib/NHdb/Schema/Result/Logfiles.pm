@@ -9,6 +9,6 @@ __PACKAGE__->add_columns(qw/
   oper static tz fpos lines lastchk
 /);
 __PACKAGE__->set_primary_key('logfiles_i');
+__PACKAGE__->has_many('games', 'NHdb::Schema::Result::Games');
 
 1;
-
