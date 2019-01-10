@@ -1063,20 +1063,20 @@ if($cmd->show_logfiles()) {
   $logger->info('');
   $logger->info('rowid  srv var descr');
   $logger->info('------ --- --- ' . '-' x 42);
-  for my $log (@logfiles) {
+  for my $log (@{$logfiles_new->logfiles}) {
 
     my $s = ' ';
-    if($log->static) { $s = '+'; }
-    if(!$log->oper) { $s = '*'; }
+    if($log->get('static')) { $s = '+'; }
+    if(!$log->get('oper')) { $s = '*'; }
 
     $logger->info(
       sprintf(
         "%5d%1s %-3s %-3s %s\n",
-        $log->logfiles_i,
+        $log->get('logfiles_i'),
         $s,
-        $log->server,
-        $log->variant,
-        substr($log->descr, 0, 48)
+        $log->get('server'),
+        $log->get('variant'),
+        substr($log->get('descr'), 0, 48)
       )
     );
   }
