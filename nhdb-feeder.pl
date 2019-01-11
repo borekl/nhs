@@ -1128,9 +1128,6 @@ for my $log (@{$logfiles_new->logfiles}) {
     my %update_name;      # updated names
     my %update_variant;   # updated variants
     my %streak_open;      # indicates open streak for
-    my $devnull;          # devnull xlogfile option
-
-    $devnull = $log->has_option('devnull');
 
     $logger->info($lbl, 'Processing file ', $localfile);
 
@@ -1141,7 +1138,7 @@ for my $log (@{$logfiles_new->logfiles}) {
     #--- devnull logfiles are slightly modified by having a server id
     #--- prepended to the usual xlogfile line
 
-      if($devnull) {
+      if($log->has_option('devnull')) {
         $l =~ s/^\S+\s(.*)$/$1/;
       }
 
