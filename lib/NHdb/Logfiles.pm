@@ -23,7 +23,7 @@ has db => (
   is => 'ro',
   required => 1,
   isa => sub {
-    croak __PACKAGE__ . 'constructor needs a DBIx::Class resultset as argument'
+    croak __PACKAGE__ . ' constructor needs a DBIx::Class resultset as argument'
     if !is_blessed_hashref($_[0]) || !$_[0]->isa('DBIx::Class::ResultSet');
   },
 );
