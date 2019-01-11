@@ -22,6 +22,7 @@ use Log::Log4perl qw(get_logger);
 use MIME::Base64 qw(decode_base64);
 use Text::Pluralize;
 use Path::Tiny;
+use Try::Tiny;
 
 #--- internal modules -------------------------------------------------------
 
@@ -1055,7 +1056,7 @@ for my $log (@{$logfiles_new->logfiles}) {
   my $logfiles_i = $log->get('logfiles_i');
   my $lbl = sprintf('[%s/%s] ', $log->get('variant'), $log->get('server'));
 
-  eval { # <--- eval starts here -------------------------------------------
+  try { # <--- try block starts here -----------------------------------------
 
     #--- prepare, print info
 
@@ -1346,20 +1347,23 @@ for my $log (@{$logfiles_new->logfiles}) {
     }
     $logger->info($lbl, 'Transaction commited');
 
-  }; # <--- eval ends here -------------------------------------------------
+  } # <--- eval ends here -------------------------------------------------
 
-  #--- log exception message, if any
+  #--- handle failure
 
-  if($@ && $@ ne "OK\n") {
-    $logger->warn($lbl, 'Eval ended with error: ', $@);
-  }
+  catch {
 
-  #--- rollback if needed
+    # log exception message, if any
+    if($_ ne "OK\n") {
+      $logger->warn($lbl, 'Eval ended with error: ', $_);
+    }
 
-  if($transaction_in_progress) {
-    $logger->warn($lbl, 'Transaction rollback');
-    $dbh->rollback();
-  }
+    # rollback if needed
+    if($transaction_in_progress) {
+      $logger->warn($lbl, 'Transaction rollback');
+      $dbh->rollback();
+    }
+  };
 
   #--- finish
 
