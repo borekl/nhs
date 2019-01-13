@@ -916,9 +916,9 @@ if($cmd->pmap_add() || $cmd->pmap_remove()) {
 #--- initialize logfiles processing
 
 my $logfiles_new = NHdb::Logfiles->new(
-  db => $cmd->show_logfiles
-    ? $dbic->resultset('Logfiles')
-    : $dbic->resultset('Logfiles')->search_rs({ oper => 'true'}),
+  db => $cmd->oper_filter
+    ? $dbic->resultset('Logfiles')->search_rs({ oper => 'true'})
+    : $dbic->resultset('Logfiles'),
   servers => $cmd->servers,
   variants => $cmd->variants,
   # FIXME: We really should make --logid accept multiple values,

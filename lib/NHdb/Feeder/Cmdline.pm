@@ -95,6 +95,13 @@ has no_lockfile => (
   is => 'rwp',
 );
 
+# load only operational sources, ignore those with logfiles.oper set to FALSE
+
+has oper_filter => (
+  is => 'rwp',
+  default => 1,
+);
+
 
 #=============================================================================
 # Initialize the object according to the command-line options given
@@ -105,14 +112,18 @@ sub BUILD {
 
   if(!GetOptions(
     'logfiles'      => sub { $self->_set_show_logfiles(1);
+                             $self->_set_oper_filter(0);
                              $self->_set_no_lockfile(1); },
     'variant=s'     => sub { $self->_add_to('variants', $_[1]); },
     'server=s'      => sub { $self->_add_to('servers', $_[1]); },
     'logid=s'       => sub { $self->_set_logid($_[1]); },
-    'purge'         => sub { $self->_set_purge(1); },
+    'purge'         => sub { $self->_set_purge(1);
+                             $self->_set_oper_filter(0); },
     'oper!'         => sub { $self->_set_operational($_[1]);
+                             $self->_set_oper_filter(0);
                              $self->_set_no_lockfile(1); },
     'static!'       => sub { $self->_set_static($_[1]);
+                             $self->_set_oper_filter(0);
                              $self->_set_no_lockfile(1); },
     'pmap-add=s'    => sub { $self->_add_to('pmap_add', $_[1]);
                              $self->_set_no_lockfile(1); },
