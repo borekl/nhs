@@ -1162,25 +1162,8 @@ for my $log (@{$logfiles_new->logfiles}) {
 
     #--- insert row into database
 
-      my ($qry, $rowid, $values);
-      ($qry, $values) = sql_insert_games(
-        $logfiles_i,
-        $log->get('lines') + $lc,
-        $log->get('server'),
-        $log->get('variant'),
-        $pl
-      );
-      if($qry) {
-        my $sth = $dbh->prepare($qry);
-        $r = $sth->execute(@$values);
-        if(!$r) {
-          $logger->error($lbl, 'Failure during inserting new records');
-          $logger->error($lbl, sql_show_query($qry, $values));
-          $logger->error($lbl, $sth->errstr());
-          die;
-        }
-        ($rowid) = $sth->fetchrow_array();
-        $sth->finish();
+      my $row = $games->add_new($pl, $log->get('lines') + $lc);
+      if(1) {
 
     #--- mark updates
     # FIXME: There's subtle potential issue with this, since
@@ -1188,7 +1171,7 @@ for my $log (@{$logfiles_new->logfiles}) {
     # if we want this or not.
 
         $update_variant{$log->get('variant')} = 1;
-        $update_name{$pl->{'name'}}{$log->get('variant')} = 1;
+        $update_name{$row->name}{$log->get('variant')} = 1;
 
     #-------------------------------------------------------------------------
     #--- streak processing starts here ---------------------------------------
@@ -1198,29 +1181,30 @@ for my $log (@{$logfiles_new->logfiles}) {
 
     # if the streak status is not yet stored in memory, which happens when
     # we first encounter (logfiles_i, name) pair, it is loaded from database
-    # (table "streaks")
+    # (table "streaks"); if the streak is not found (ie. the player has no
+    # streaks) 0 is returned
 
-        if(!exists($streak_open{$logfiles_i}{$pl->{'name'}})) {
-          $r = sql_streak_find($logfiles_i, $pl->{'name'});
+        if(!exists($streak_open{$logfiles_i}{$row->name})) {
+          $r = sql_streak_find($logfiles_i, $row->name);
           die $r if !ref($r);
-          $streak_open{$logfiles_i}{$pl->{'name'}} = $r->[0];
+          $streak_open{$logfiles_i}{$row->name} = $r->[0];
         }
 
     #--- game is ASCENDED
 
-        if($pl->{'ascended'}) {
+        if($row->ascended eq 'true') {
 
     #--- game is ASCENDED / streak is NOT OPEN
 
-          if(!$streak_open{$logfiles_i}{$pl->{'name'}}) {
+          if(!$streak_open{$logfiles_i}{$row->name}) {
             my $streaks_i = sql_streak_create_new(
               $logfiles_i,
-              $pl->{'name'},
-              $pl->{'name_orig'},
-              $rowid
+              $row->name,
+              $row->name_orig,
+              $row->id
             );
             die $streaks_i if !ref($streaks_i);
-            $streak_open{$logfiles_i}{$pl->{'name'}} = $streaks_i->[0]
+            $streak_open{$logfiles_i}{$row->name} = $streaks_i->[0]
           }
 
     #--- game is ASCENDED / streak is OPEN
@@ -1232,40 +1216,47 @@ for my $log (@{$logfiles_new->logfiles}) {
 
           else {
             my $last_game = sql_streak_get_tail(
-              $streak_open{$logfiles_i}{$pl->{'name'}}
+              $streak_open{$logfiles_i}{$row->name}
             );
             if(!ref($last_game)) {
               die sprintf(
                 'sql_streak_get_tail(%s) failed with msg "%s"',
-                $streak_open{$logfiles_i}{$pl->{'name'}}, $last_game
+                $streak_open{$logfiles_i}{$row->name}, $last_game
               );
             }
+            #printf("--> last_game.endtime_raw=%d current_game.endtime_raw=%d, ovr=%d\n",
+            #  $last_game->{'endtime_raw'},
+            #  $row->starttime_raw,
+            #  $last_game->{'endtime_raw'} >= $row->starttime_raw
+            #);
             if(
               $last_game->{'endtime_raw'}
-              && $pl->{'starttime'}
-              && $last_game->{'endtime_raw'} >= $pl->{'starttime'}
+              && $row->starttime_raw
+              && $last_game->{'endtime_raw'} >= $row->starttime_raw
             ) {
               # close current streak
               $logger->info($lbl,
-                sprintf('Closing overlapping streak %d', $streak_open{$logfiles_i}{$pl->{'name'}})
+                sprintf(
+                  'Closing overlapping streak %d',
+                  $streak_open{$logfiles_i}{$row->name})
               );
               $r = sql_streak_close(
-                $streak_open{$logfiles_i}{$pl->{'name'}}
+                $streak_open{$logfiles_i}{$row->name}
               );
               die $r if !ref($r);
               # open new
               $r = sql_streak_create_new(
                 $logfiles_i,
-                $pl->{'name'},
-                $pl->{'name_orig'},
-                $rowid
+                $row->name,
+                $row->name_orig,
+                $row->id
               );
               die $r if !ref($r);
-              $streak_open{$logfiles_i}{$pl->{'name'}} = $r->[0];
+              $streak_open{$logfiles_i}{$row->name} = $r->[0];
             } else {
               $r = sql_streak_append_game(
-                $streak_open{$logfiles_i}{$pl->{'name'}},
-                $rowid
+                $streak_open{$logfiles_i}{$row->name},
+                $row->id
               );
               die $r if !ref($r);
             }
@@ -1278,12 +1269,12 @@ for my $log (@{$logfiles_new->logfiles}) {
 
     #--- game is not ASCENDED / streak is OPEN
 
-          if($streak_open{$logfiles_i}{$pl->{'name'}}) {
+          if($streak_open{$logfiles_i}{$row->name}) {
             $r = sql_streak_close(
-              $streak_open{$logfiles_i}{$pl->{'name'}}
+              $streak_open{$logfiles_i}{$row->name}
             );
             die $r if !ref($r);
-            $streak_open{$logfiles_i}{$pl->{'name'}} = undef;
+            $streak_open{$logfiles_i}{$row->name} = undef;
           }
 
         }
