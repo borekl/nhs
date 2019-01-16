@@ -1192,7 +1192,7 @@ for my $log (@{$logfiles_new->logfiles}) {
 
     #--- game is ASCENDED
 
-        if($row->ascended eq 'true') {
+        if($row->ascended) {
 
     #--- game is ASCENDED / streak is NOT OPEN
 
