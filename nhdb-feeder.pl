@@ -36,6 +36,7 @@ use NHdb::Schema;
 use NHdb::Utils;
 use NHdb::Feeder::Cmdline;
 use NHdb::Logfiles;
+use NHdb::Games;
 
 
 #--- additional perl runtime setup ------------------------------------------
@@ -1112,6 +1113,16 @@ for my $log (@{$logfiles_new->logfiles}) {
         die;
       }
     }
+
+    #--- initialize the interface into the 'games' table
+
+    my $games = NHdb::Games->new(
+      db => $dbic->resultset('Games'),
+      nhdb => $nhdb,
+      nh => $nh,
+      log => $log,
+      translations => \%translations,
+    );
 
     #--- begin transaction
 
