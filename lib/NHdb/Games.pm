@@ -113,7 +113,7 @@ sub add_new
   $d{'death'} = substr($death, 0, 128);
 
   #--- ascended flag
-  $d{'ascended'} = ( $death =~ /^(ascended|defied the gods)\b/ ? 'true': 'false' );
+  $d{'ascended'} = ( $death =~ /^(ascended|defied the gods)\b/ ? 1 : 0 );
 
   #--- dNetHack combo mangling workaround
   # please refer to comment in NetHack.pm; this is only done to two specific
