@@ -9,7 +9,7 @@ package NHdb::Logfile;
 use Moo;
 use NHdb::Config;
 use Path::Tiny;
-use Ref::Util;
+use Ref::Util qw(is_coderef);
 use Carp;
 use MIME::Base64 qw(decode_base64);
 
@@ -197,7 +197,7 @@ sub read
   #--- main read loop
 
   my $lc = 0;
-  while(my $l = <$fpos>) {
+  while(my $l = <$logf>) {
     chomp $l;
     if($devnull) { $l =~ s/^\S+\s(.*)$/$1/; }
     $cb->($self->_parse($l), $lc);
@@ -216,6 +216,9 @@ sub read
     lines => $self->get('lines') + $lc,
   });
 
+  #--- finish
+
+  return $lc;
 }
 
 
