@@ -746,7 +746,7 @@ if($cmd->pmap_add() || $cmd->pmap_remove()) {
 
 #--- initialize logfiles processing
 
-my $logfiles_new = NHdb::Logfiles->new(
+my $logfiles = NHdb::Logfiles->new(
   db => $cmd->oper_filter
     ? $dbic->resultset('Logfiles')->search_rs({ oper => 'true'})
     : $dbic->resultset('Logfiles'),
@@ -760,37 +760,24 @@ my $logfiles_new = NHdb::Logfiles->new(
 $logger->info(
   pluralize(
     '%d source(s) out of %d selected for processing',
-    $logfiles_new->count, $logfiles_new->count_all
+    $logfiles->count, $logfiles->count_all
   )
 );
 
-if(!$logfiles_new->count) {
+if(!$logfiles->count) {
   $cmd->unlock; exit(1);
 }
 
 #--- process --oper and --static options
 
 if(defined($cmd->operational()) || defined($cmd->static())) {
-  $logfiles_new->set_state(
+  $logfiles->set_state(
     oper => $cmd->operational,
     static => $cmd->static,
   );
   $logger->info('Operational/static flags set, exiting');
   exit(0);
 }
-
-#--- get list of logfiles to process
-
-my @logfiles = $dbic->resultset('Logfiles')->search(
-  undef, { order_by => 'logfiles_i' }
-);
-
-$logger->info(
-  sprintf("Loaded %d configured logfile%s",
-    scalar(@logfiles),
-    (scalar(@logfiles) != 1 ? 's' : '')
-  )
-);
 
 #--- display logfiles, if requested
 
@@ -801,7 +788,7 @@ if($cmd->show_logfiles()) {
   $logger->info('');
   $logger->info('rowid  srv var descr');
   $logger->info('------ --- --- ' . '-' x 42);
-  for my $log (@{$logfiles_new->logfiles}) {
+  for my $log (@{$logfiles->logfiles}) {
 
     my $s = ' ';
     if($log->get('static')) { $s = '+'; }
@@ -824,7 +811,7 @@ if($cmd->show_logfiles()) {
 #--- database purge
 
 if($cmd->purge()) {
-  sql_purge_database($logfiles_new);
+  sql_purge_database($logfiles);
   unlink($lockfile);
   exit(0);
 }
@@ -884,7 +871,7 @@ if($cnt_update == 0) {
 
 #--- iterate over logfiles
 
-for my $log (@{$logfiles_new->logfiles}) {
+for my $log (@{$logfiles->logfiles}) {
 
   my $transaction_in_progress = 0;
   my $logfiles_i = $log->get('logfiles_i');
