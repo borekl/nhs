@@ -790,7 +790,7 @@ if($cmd->show_logfiles()) {
 
 if($cmd->purge()) {
   sql_purge_database($logfiles);
-  unlink($lockfile);
+  $cmd->unlock;
   exit(0);
 }
 
