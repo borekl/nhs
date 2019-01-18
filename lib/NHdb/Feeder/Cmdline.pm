@@ -89,12 +89,6 @@ has pmap_list => (
   is => 'rwp',
 );
 
-# do not create lock file flag
-
-has no_lockfile => (
-  is => 'rwp',
-);
-
 # load only operational sources, ignore those with logfiles.oper set to FALSE
 
 has oper_filter => (
