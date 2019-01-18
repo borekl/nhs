@@ -764,6 +764,10 @@ $logger->info(
   )
 );
 
+if(!$logfiles_new->count) {
+  $cmd->unlock; exit(1);
+}
+
 #--- process --oper and --static options
 
 if(defined($cmd->operational()) || defined($cmd->static())) {
@@ -780,10 +784,6 @@ if(defined($cmd->operational()) || defined($cmd->static())) {
 my @logfiles = $dbic->resultset('Logfiles')->search(
   undef, { order_by => 'logfiles_i' }
 );
-
-if(scalar(@logfiles) == 0) {
-  die "No operational logfiles configured\n";
-}
 
 $logger->info(
   sprintf("Loaded %d configured logfile%s",
