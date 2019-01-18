@@ -758,7 +758,10 @@ my $logfiles_new = NHdb::Logfiles->new(
 );
 
 $logger->info(
-  pluralize('%d log(s) selected for processing', $logfiles_new->count)
+  pluralize(
+    '%d source(s) out of %d selected for processing',
+    $logfiles_new->count, $logfiles_new->count_all
+  )
 );
 
 #--- process --oper and --static options
