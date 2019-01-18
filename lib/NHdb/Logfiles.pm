@@ -9,6 +9,7 @@ package NHdb::Logfiles;
 use Moo;
 use Carp;
 use Ref::Util qw(is_blessed_hashref is_arrayref);
+use Log::Log4perl qw(get_logger);
 
 use NHdb::Logfile;
 
@@ -168,6 +169,43 @@ sub count_all
   my ($self) = shift;
 
   return $self->db->count;
+}
+
+
+#=============================================================================
+# Show list of configured/selected sources (used for the --logfiles) command-
+# line option.
+#=============================================================================
+
+sub display_list
+{
+  my ($self) = @_;
+  my $logfiles = $self->logfiles;
+  my $logger = get_logger('Feeder');
+
+  $logger->info('Displaying configured logfiles (--logfiles option)');
+  $logger->info('');
+  $logger->info('* disabled sources, + static sources');
+  $logger->info('');
+  $logger->info('rowid  srv var descr');
+  $logger->info('------ --- --- ' . '-' x 42);
+
+  for my $log (@$logfiles) {
+    my $s = ' ';
+    if($log->get('static')) { $s = '+'; }
+    if(!$log->get('oper')) { $s = '*'; }
+
+    $logger->info(
+      sprintf(
+        "%5d%1s %-3s %-3s %s\n",
+        $log->get('logfiles_i'),
+        $s,
+        $log->get('server'),
+        $log->get('variant'),
+        substr($log->get('descr'), 0, 48)
+      )
+    );
+  }
 }
 
 

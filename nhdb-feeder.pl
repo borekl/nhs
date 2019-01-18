@@ -779,32 +779,10 @@ if(defined($cmd->operational()) || defined($cmd->static())) {
   exit(0);
 }
 
-#--- display logfiles, if requested
+#--- display logfiles, if requested with --logfiles
 
 if($cmd->show_logfiles()) {
-  $logger->info('Displaying configured logfiles (--logfiles option)');
-  $logger->info('');
-  $logger->info('* disabled sources, + static sources');
-  $logger->info('');
-  $logger->info('rowid  srv var descr');
-  $logger->info('------ --- --- ' . '-' x 42);
-  for my $log (@{$logfiles->logfiles}) {
-
-    my $s = ' ';
-    if($log->get('static')) { $s = '+'; }
-    if(!$log->get('oper')) { $s = '*'; }
-
-    $logger->info(
-      sprintf(
-        "%5d%1s %-3s %-3s %s\n",
-        $log->get('logfiles_i'),
-        $s,
-        $log->get('server'),
-        $log->get('variant'),
-        substr($log->get('descr'), 0, 48)
-      )
-    );
-  }
+  $logfiles->display_list;
   exit(0);
 }
 
