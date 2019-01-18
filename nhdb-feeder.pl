@@ -887,30 +887,27 @@ for my $log (@{$logfiles->logfiles}) {
       die "OK\n";
     } else {
       $logger->info($lbl,
-        sprintf(
-          'Logfile retrieved successfully, got %d bytes',
-          (-s $localfile) - $log->get('fpos')
-        )
+        sprintf('Logfile retrieved successfully, got %d bytes', $r)
       );
     }
 
     #--- open the file
 
-    if(!open(F, $localfile)) {
-      $logger->error($lbl, 'Failed to open local file ', $localfile);
-      die;
-    }
+    #if(!open(F, $localfile)) {
+    #  $logger->error($lbl, 'Failed to open local file ', $localfile);
+    #  die;
+    #}
 
     #--- seek into the file (if position is known)
 
-    if($fpos) {
-      $logger->info($lbl, sprintf('Seeking to %d', $fpos));
-      $r = seek(F, $fpos, 0);
-      if(!$r) {
-        $logger->error($lbl, sprintf('Failed to seek to $fpos', $fpos));
-        die;
-      }
-    }
+    #if($fpos) {
+    #  $logger->info($lbl, sprintf('Seeking to %d', $fpos));
+    #  $r = seek(F, $fpos, 0);
+    #  if(!$r) {
+    #    $logger->error($lbl, sprintf('Failed to seek to $fpos', $fpos));
+    #    die;
+    #  }
+    #}
 
     #--- initialize the interface into the 'games' table
 
@@ -934,29 +931,19 @@ for my $log (@{$logfiles->logfiles}) {
 
     #--- now read content of the file
 
-    my $lc = 0;           # line counter
     my $tm = time();      # timer
     my $ll = 0;           # time of last info
     my %update_name;      # updated names
     my %update_variant;   # updated variants
     my %streak_open;      # indicates open streak for
+    my $devnull = $log->has_option('devnull');
 
     $logger->info($lbl, 'Processing file ', $localfile);
 
-    while(my $l = <F>) { #<<< read loop beings here
+    #--- read loop
 
-      chomp($l);
-
-    #--- devnull logfiles are slightly modified by having a server id
-    #--- prepended to the usual xlogfile line
-
-      if($log->has_option('devnull')) {
-        $l =~ s/^\S+\s(.*)$/$1/;
-      }
-
-    #--- parse log
-
-      my $pl = parse_log($log, $l);
+    my $lines_read = $log->read(sub {
+      my ($pl, $lc) = @_;
 
     #--- insert row into database
 
@@ -1090,10 +1077,10 @@ for my $log (@{$logfiles->logfiles}) {
       }
       $lc++;
 
-    } #<<< read loop ends here
+    }); #<<< read loop ends here
 
     $logger->info($lbl,
-      sprintf('Finished reading %d lines', $lc)
+      sprintf('Finished reading %d lines', $lines_read)
     );
 
     #--- close streak for 'static' sources
@@ -1113,29 +1100,6 @@ for my $log (@{$logfiles->logfiles}) {
 
     my $re = sql_update_info(\%update_variant, \%update_name);
     if($re) { die $re; }
-
-    #--- update database with new position in the file
-
-    my @logupdate = (
-      'fpos = ?',
-      'lastchk = current_timestamp',
-      'lines = ?'
-    );
-
-    if($log->get('static')) { push(@logupdate, 'oper = false'); }
-    my $qry = sprintf(
-      'UPDATE logfiles SET %s WHERE logfiles_i = ?', join(', ', @logupdate)
-    );
-    $sth = $dbh->prepare($qry);
-    $r = $sth->execute(
-      $fsize[1],
-      $log->get('lines') + $lc,
-      $log->get('logfiles_i')
-    );
-    if(!$r) {
-      $logger->error($lbl, q{Failed to update table 'servers'});
-      die;
-    }
 
     #--- commit transaction
 
