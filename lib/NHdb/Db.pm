@@ -75,6 +75,7 @@ sub _db_connect
     $c->{'auth'}{$conn->{'dbuser'}},
     {
       AutoCommit => 1,
+      RaiseError => 1,
       pg_enable_utf => 1,
     }
   );
