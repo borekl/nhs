@@ -45,6 +45,15 @@ INSERT INTO logfiles (
   'https://s3.amazonaws.com/altorg/dumplog/%u/%s.nh361.txt'
 );
 
+INSERT INTO logfiles (
+  logfiles_i, descr, server, variant, logurl, localfile, dumpurl
+) VALUES (
+  75, 'nethack.alt.org (3.6.2)', 'nao', 'nh',
+  'https://alt.org/nethack/xlogfile.nh362',
+  'nao.nh.362.log',
+  'https://s3.amazonaws.com/altorg/dumplog/%u/%s.nh362.txt'
+);
+
 -----------------------------------------------------------------------------
 -- acehack.de/ADE (defunct) -------------------------------------------------
 -----------------------------------------------------------------------------
@@ -301,10 +310,10 @@ INSERT INTO logfiles (
 INSERT INTO logfiles (
   logfiles_i, descr, server, variant, logurl, localfile, dumpurl
 ) VALUES (
-  25, 'hardfought.org (NetHack 3.6.1)', 'hdf', 'nh',
-  'https://www.hardfought.org/xlogfiles/nh361/xlogfile',
-  'hdf.nh361.log',
-  'https://www.hardfought.org/userdata/%U/%u/nh361/dumplog/%s.nh361.txt'
+  25, 'hardfought.org (NetHack)', 'hdf', 'nh',
+  'https://www.hardfought.org/xlogfiles/nethack/xlogfile',
+  'hdf.nh.log',
+  'https://www.hardfought.org/userdata/%U/%u/nethack/dumplog/%s.nh.txt'
 );
 
 INSERT INTO logfiles (
@@ -398,6 +407,15 @@ INSERT INTO logfiles (
   'https://www.hardfought.org/userdata/%U/%u/slashem/dumplog/%s.slashem.txt'
 );
 
+INSERT INTO logfiles (
+  logfiles_i, descr, server, variant, logurl, localfile, dumpurl
+) VALUES (
+  72, 'hardfought.org (EvilHack)', 'hdf', 'eh',
+  'https://www.hardfought.org/xlogfiles/evilhack/xlogfile',
+  'hdf.eh.log',
+  'https://www.hardfought.org/userdata/%U/%u/evilhack/dumplog/%s.evil.txt'
+);
+
 -----------------------------------------------------------------------------
 -- hardfought.org Europe/HFE ------------------------------------------------
 -----------------------------------------------------------------------------
@@ -414,10 +432,10 @@ INSERT INTO logfiles (
 INSERT INTO logfiles (
   logfiles_i, descr, server, variant, logurl, localfile, dumpurl
 ) VALUES (
-  36, 'eu.hardfought.org (NetHack 3.6.1)', 'hfe', 'nh',
-  'https://eu.hardfought.org/xlogfiles/nh361/xlogfile',
-  'hfe.nh.361.log',
-  'https://eu.hardfought.org/userdata/%U/%u/nh361/dumplog/%s.nh361.txt'
+  36, 'eu.hardfought.org (NetHack)', 'hfe', 'nh',
+  'https://eu.hardfought.org/xlogfiles/nethack/xlogfile',
+  'hfe.nh.log',
+  'https://eu.hardfought.org/userdata/%U/%u/nethack/dumplog/%s.nh.txt'
 );
 
 INSERT INTO logfiles (
@@ -529,6 +547,15 @@ INSERT INTO logfiles (
   'https://eu.hardfought.org/userdata/%U/%u/slashem/dumplog/%s.slashem.txt'
 );
 
+INSERT INTO logfiles (
+  logfiles_i, descr, server, variant, logurl, localfile, dumpurl
+) VALUES (
+  73, 'eu.hardfought.org (EvilHack)', 'hfe', 'eh',
+  'https://eu.hardfought.org/xlogfiles/evilhack/xlogfile',
+  'hfe.eh.log',
+  'https://eu.hardfought.org/userdata/%U/%u/evilhack/dumplog/%s.evil.txt'
+);
+
 -----------------------------------------------------------------------------
 -- hardfought.org Australia/HFA ---------------------------------------------
 -----------------------------------------------------------------------------
@@ -563,10 +590,10 @@ INSERT INTO logfiles (
 INSERT INTO logfiles (
   logfiles_i, descr, server, variant, logurl, localfile, dumpurl
 ) VALUES (
-  56, 'au.hardfought.org (NetHack 3.6.1)', 'hfa', 'nh',
-  'https://au.hardfought.org/xlogfiles/nh361/xlogfile',
-  'hfa.nh361.log',
-  'https://au.hardfought.org/userdata/%U/%u/nh361/dumplog/%s.nh361.txt'
+  56, 'au.hardfought.org (NetHack)', 'hfa', 'nh',
+  'https://au.hardfought.org/xlogfiles/nethack/xlogfile',
+  'hfa.nh.log',
+  'https://au.hardfought.org/userdata/%U/%u/nethack/dumplog/%s.nh.txt'
 );
 
 INSERT INTO logfiles (
@@ -658,6 +685,15 @@ INSERT INTO logfiles (
   'https://au.hardfought.org/xlogfiles/slashem/xlogfile',
   'hfa.sle.log',
   'https://au.hardfought.org/userdata/%U/%u/slashem/dumplog/%s.slashem.txt'
+);
+
+INSERT INTO logfiles (
+  logfiles_i, descr, server, variant, logurl, localfile, dumpurl
+) VALUES (
+  74, 'au.hardfought.org (EvilHack)', 'hfa', 'eh',
+  'https://au.hardfought.org/xlogfiles/evilhack/xlogfile',
+  'hfa.eh.log',
+  'https://au.hardfought.org/userdata/%U/%u/evilhack/dumplog/%s.evil.txt'
 );
 
 -----------------------------------------------------------------------------
