@@ -1,5 +1,9 @@
 # NETHACK SCOREBOARD
 
+**Note**: This original version of the NetHack Scoreboard is no longer maintained as I have stopped working on it. Further development is happening in [this](https://github.com/aoeixsz4/nhs-fork) fork.
+
+-----
+
 This is the code used to run [NetHack Scoreboard](https://scoreboard.xd.cm/) web site. The code consists of two main components: *feeder* and *stats generator*. The feeder retrieves [xlogfiles](http://nethackwiki.com/wiki/Xlogfile) from public NetHack servers, parses them and stores the parsed log entries in a back-end database. The stats generator then uses this data to generate static HTML pages with various statistics, including personal pages.
 
 The NetHack Scoreboard is written using:
@@ -9,41 +13,6 @@ The NetHack Scoreboard is written using:
 * **Template Toolkit** as templating engine
 * **Log4Perl** as logging system
 * **Moo** as OOP framework
-
------
-
-## To Do
-
-This list is an implementation plan for the near future. Feel free to submit your own suggestions.
-
-* **Searching By Player Name** //
-Interactive searching for player name (req. *stenno*).
-
-* **Add Average Realtime And Average Gametime To Per-Variant Stats** // Can't be done for aggregates since realtime is measured differently or completely unavailable in some variants and gametime depends on variant (some variants have too different gameplay to be comparable)
-
-* **Pseudovariant 'var'** // This would be pseudo-variant that would aggregate all variants but vanilla NetHack.
-
-* **Switch everything to use starting alignment/gender** // Currently we use ending alignment/gender.
-
-* **Use UTC Everywhere** // Currently we use local time which is plain wrong.
-
-* **Per-Player Conduct Achievements** //
-Simple table with all relevant conducts and info whether the player
-has achieved them; optionally, make the table list number of times the
-conducts were achieved (in a winning game)
-
-* **Combos page** //
-Combos page like the one we have in /dev/null, but generalized.  Use this
-for per-player combo page, maybe some more later (but the code should be 
-general); after this is done, convert devnull Combos page to this new base.
-
-* **Experimental flag** //
-Variant can be marked as experimental, which will exclude it from the 'all'
-pseudovariant
-
-* **Browsing All Player Games** //
-For a given player, all games can be browsed in a paginated display (like on
-NAO).
 
 -----
 
